@@ -299,6 +299,29 @@ def verify_candidate(c, corpus):
     return c
 
 
+import unicodedata
+
+
+def _norm(x):
+    x = unicodedata.normalize("NFD", str(x or "")).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9@. ]+", " ", x)
+
+
+EXCLUDE_RE = re.compile(
+    r"\b(banque|bank|banco|societe financiere|nations unies|united nations|unicef|unops|unesco|"
+    r"ambassade|embassy|consulat|consulate|ministere|ministry|gouvernement|government|oea|oas|"
+    r"mission diplomatique|police|sauvetage)\b|@[a-z0-9.-]*(\.gov|\.gouv\.ht|\.un\.org|diplomatie\.ht)\b")
+
+
+def excluded(c, seg):
+    """Filtre côté code (le LLM ignore parfois la consigne) : pays hors zone, banques, ONU, État."""
+    allowed = seg.get("countries")
+    if allowed and _norm(c.get("country")).strip() not in {_norm(a).strip() for a in allowed}:
+        return True
+    blob = _norm(" ".join(str(c.get(k) or "") for k in ("name", "notes", "contact")))
+    return bool(EXCLUDE_RE.search(blob))
+
+
 def fetch_web(seg, tavily_key, rng, max_queries=3):
     out = []
     queries = list(seg["queries"])
@@ -319,7 +342,7 @@ def fetch_web(seg, tavily_key, rng, max_queries=3):
         cands = extract_json_array(llm_complete(EXTRACT_SYS, corpus))
         for c in cands:
             c = verify_candidate(c, corpus)
-            if not c:
+            if not c or excluded(c, seg):
                 continue
             out.append({
                 "name": c["name"][:200], "segment": seg["label"],

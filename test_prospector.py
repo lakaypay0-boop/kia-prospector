@@ -37,6 +37,21 @@ class PhonesAbroad(unittest.TestCase):
         self.assertEqual([p["name"] for p in P.dedupe([a, b, c])], ["Autre"])
 
 
+class Exclusions(unittest.TestCase):
+    SEG = {"countries": ["Haïti", "États-Unis"]}
+
+    def test_exclusions(self):
+        ok = {"name": "Fondation X", "notes": "fondation, Port-au-Prince", "contact": "a@fx.ht", "country": "Haïti"}
+        self.assertFalse(P.excluded(ok, self.SEG))
+        self.assertTrue(P.excluded(dict(ok, country="Éthiopie"), self.SEG))
+        self.assertTrue(P.excluded(dict(ok, name="Banque de l'Union Haïtienne"), self.SEG))
+        self.assertTrue(P.excluded(dict(ok, name="Mission Haiti", notes="mission de l'OEA"), self.SEG))
+        self.assertTrue(P.excluded(dict(ok, contact="x@diplomatie.ht"), self.SEG))
+        self.assertTrue(P.excluded(dict(ok, name="Société Financière Haïtienne"), self.SEG))
+        self.assertFalse(P.excluded(dict(ok, country="etats-unis"), self.SEG))
+        self.assertFalse(P.excluded(ok, {}))
+
+
 class Osm(unittest.TestCase):
     def test_parse(self):
         data = {"elements": [

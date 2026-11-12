@@ -84,6 +84,16 @@
       "association haïtienne Montréal contact courriel",
       "Haitian American chamber of commerce contact",
       "association haïtienne France contact"
+    ],
+    "countries": [
+      "États-Unis",
+      "Canada",
+      "France",
+      "Haïti",
+      "Belgique",
+      "Suisse",
+      "Bahamas",
+      "République dominicaine"
     ]
   },
   {
@@ -96,6 +106,16 @@
       "Haitian owned restaurant Brooklyn contact website",
       "entreprise haïtienne Montréal site web contact",
       "Haitian owned business Boston contact email"
+    ],
+    "countries": [
+      "États-Unis",
+      "Canada",
+      "France",
+      "Haïti",
+      "Belgique",
+      "Suisse",
+      "Bahamas",
+      "République dominicaine"
     ]
   },
   {
@@ -107,7 +127,13 @@
       "ONG Haïti Port-au-Prince contact email",
       "NGO Haiti local organization contact email",
       "fondation haïtienne contact Port-au-Prince",
-      "institution haïtienne microfinance contact"
+      "association haïtienne développement communautaire Haïti contact email"
+    ],
+    "countries": [
+      "Haïti",
+      "États-Unis",
+      "Canada",
+      "France"
     ]
   }
 ]
