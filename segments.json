@@ -1,0 +1,32 @@
+[
+  {"id": "clinics_ht", "kind": "osm", "label": "clinique / cabinet médical", "country": "Haïti",
+   "osm": ["amenity=clinic", "amenity=doctors", "amenity=dentist", "amenity=pharmacy"]},
+  {"id": "hotels_ht", "kind": "osm", "label": "hôtel / restaurant", "country": "Haïti",
+   "osm": ["tourism=hotel", "tourism=guest_house", "amenity=restaurant", "tourism=apartment"]},
+  {"id": "schools_ht", "kind": "osm", "label": "école / université", "country": "Haïti",
+   "osm": ["amenity=school", "amenity=university", "amenity=college", "amenity=language_school"]},
+  {"id": "shops_ht", "kind": "osm", "label": "commerce / boutique", "country": "Haïti",
+   "osm": ["shop=clothes", "shop=beauty", "shop=hairdresser", "shop=electronics", "shop=supermarket", "shop=car_repair"]},
+  {"id": "diaspora_assoc", "kind": "web", "label": "association diaspora", "country": "Diaspora",
+   "queries": [
+     "Haitian association nonprofit Miami contact email",
+     "Haitian community organization New York contact",
+     "association haïtienne Montréal contact courriel",
+     "Haitian American chamber of commerce contact",
+     "association haïtienne France contact"
+   ]},
+  {"id": "diaspora_biz", "kind": "web", "label": "entreprise diaspora", "country": "Diaspora",
+   "queries": [
+     "Haitian owned business Miami contact",
+     "Haitian owned restaurant Brooklyn contact website",
+     "entreprise haïtienne Montréal site web contact",
+     "Haitian owned business Boston contact email"
+   ]},
+  {"id": "ngo_ht", "kind": "web", "label": "ONG / institution", "country": "Haïti",
+   "queries": [
+     "ONG Haïti Port-au-Prince contact email",
+     "NGO Haiti local organization contact email",
+     "fondation haïtienne contact Port-au-Prince",
+     "institution haïtienne microfinance contact"
+   ]}
+]
