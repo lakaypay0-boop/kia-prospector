@@ -313,11 +313,20 @@ EXCLUDE_RE = re.compile(
     r"mission diplomatique|police|sauvetage)\b|@[a-z0-9.-]*(\.gov|\.gouv\.ht|\.un\.org|diplomatie\.ht)\b")
 
 
+JUNK_NAME_RE = re.compile(r"non specifi|nom non|unknown|sans nom|inconnu")
+DIRECTORY_RE = re.compile(
+    r"(?:^|[/.])(?:yelp|tripadvisor|yellowpages|pagesjaunes|mapquest|groupon|foursquare|bbb|manta|traiteursmontreal)\.(?:com|org|ca|fr|net)")
+
+
 def excluded(c, seg):
     """Filtre côté code (le LLM ignore parfois la consigne) : pays hors zone, banques, ONU, État."""
     allowed = seg.get("countries")
     if allowed and _norm(c.get("country")).strip() not in {_norm(a).strip() for a in allowed}:
         return True
+    if JUNK_NAME_RE.search(_norm(c.get("name"))):
+        return True  # nom absent ou inventé ("nom non spécifié")
+    if DIRECTORY_RE.search((c.get("source_url") or "").lower()):
+        return True  # annuaire / site d'avis : le contact n'est pas celui de l'entreprise
     blob = _norm(" ".join(str(c.get(k) or "") for k in ("name", "notes", "contact")))
     return bool(EXCLUDE_RE.search(blob))
 

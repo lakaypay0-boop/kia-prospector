@@ -153,6 +153,19 @@ class Fallback(unittest.TestCase):
             P.fetch_osm, P.fetch_web = orig
 
 
+class AnnuairesEtNomsVides(unittest.TestCase):
+    SEG = {"countries": ["États-Unis", "Canada"]}
+    OK = {"name": "Rdjess Traiteur", "notes": "traiteur, Montréal", "contact": "+15145764563",
+          "country": "Canada", "source_url": "https://rdjess.com"}
+
+    def test_exclusions(self):
+        self.assertFalse(P.excluded(self.OK, self.SEG))
+        self.assertTrue(P.excluded(dict(self.OK, name="Restaurant Haïtien (nom non spécifié)"), self.SEG))
+        self.assertTrue(P.excluded(dict(self.OK, source_url="https://www.yelp.com/search?find_desc=Haitian"), self.SEG))
+        self.assertTrue(P.excluded(dict(self.OK, source_url="https://traiteursmontreal.com/haitien"), self.SEG))
+        self.assertFalse(P.excluded(dict(self.OK, source_url="https://www.facebook.com/chezmarie"), self.SEG))
+        self.assertFalse(P.excluded(dict(self.OK, source_url="https://mabbbakery.com"), self.SEG))
+
 class DiasporaBiz(unittest.TestCase):
     def test_segment_commerces(self):
         import os
