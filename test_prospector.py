@@ -153,5 +153,36 @@ class Fallback(unittest.TestCase):
             P.fetch_osm, P.fetch_web = orig
 
 
+class DiasporaBiz(unittest.TestCase):
+    def test_segment_commerces(self):
+        import os
+        segs = json.load(open(os.path.join(P.HERE, "segments.json"), encoding="utf-8"))
+        seg = next(s for s in segs if s["id"] == "diaspora_biz")
+        self.assertIn("commerce", seg["label"])
+        self.assertIn("restaurants", seg["focus"])
+        self.assertGreaterEqual(len(seg["queries"]), 12)
+        blob = " ".join(seg["queries"]).lower()
+        for mot in ("restaurant", "bakery", "boulangerie", "traiteur", "salon", "caterer"):
+            self.assertIn(mot, blob)
+
+    def test_focus_envoye_au_llm(self):
+        import random
+        seen = {}
+        orig = (P.tavily_search, P.llm_complete)
+        P.tavily_search = lambda q, key, n=10: [{"url": "u", "title": "t", "content": "Chez Marie, info@chezmarie.com"}]
+        def fake(system, user, env=None):
+            seen["system"] = system
+            return '[{"name":"Chez Marie","contact":"info@chezmarie.com","country":"États-Unis","notes":"restaurant, Miami","source_url":"u"}]'
+        P.llm_complete = fake
+        try:
+            seg = {"id": "diaspora_biz", "label": "commerce diaspora", "country": "Diaspora",
+                   "queries": ["q"], "focus": "CIBLE UNIQUEMENT des restaurants.", "countries": ["États-Unis"]}
+            out = P.fetch_web(seg, "k", random.Random(1), 1)
+        finally:
+            P.tavily_search, P.llm_complete = orig
+        self.assertIn("CIBLE UNIQUEMENT des restaurants.", seen["system"])
+        self.assertTrue(seen["system"].startswith(P.EXTRACT_SYS))
+        self.assertEqual(out[0]["name"], "Chez Marie")
+
 if __name__ == "__main__":
     unittest.main()

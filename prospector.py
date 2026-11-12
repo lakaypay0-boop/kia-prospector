@@ -339,7 +339,8 @@ def fetch_web(seg, tavily_key, rng, max_queries=3):
             for r in res)
         if not corpus.strip():
             continue
-        cands = extract_json_array(llm_complete(EXTRACT_SYS, corpus))
+        system = EXTRACT_SYS + ((" " + seg["focus"]) if seg.get("focus") else "")
+        cands = extract_json_array(llm_complete(system, corpus))
         for c in cands:
             c = verify_candidate(c, corpus)
             if not c or excluded(c, seg):

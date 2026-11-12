@@ -99,13 +99,25 @@
   {
     "id": "diaspora_biz",
     "kind": "web",
-    "label": "entreprise diaspora",
+    "label": "commerce diaspora",
     "country": "Diaspora",
     "queries": [
-      "Haitian owned business Miami contact",
-      "Haitian owned restaurant Brooklyn contact website",
-      "entreprise haïtienne Montréal site web contact",
-      "Haitian owned business Boston contact email"
+      "Haitian restaurant Miami contact email",
+      "Haitian restaurant Brooklyn contact email website",
+      "Haitian bakery Miami contact",
+      "Haitian bakery Brooklyn contact email",
+      "Haitian catering Miami contact email",
+      "Haitian caterer New York contact email",
+      "Haitian hair salon Miami contact",
+      "Haitian beauty salon Boston contact email",
+      "Haitian barbershop Orlando contact",
+      "Haitian grocery market Miami contact email",
+      "restaurant haïtien Montréal contact courriel",
+      "boulangerie haïtienne Montréal contact courriel",
+      "traiteur haïtien Montréal contact courriel",
+      "salon de coiffure haïtien Montréal contact",
+      "restaurant haïtien Paris contact email",
+      "traiteur haïtien Paris contact email"
     ],
     "countries": [
       "États-Unis",
@@ -116,7 +128,8 @@
       "Suisse",
       "Bahamas",
       "République dominicaine"
-    ]
+    ],
+    "focus": "CIBLE UNIQUEMENT des commerces de proximité tenus par des Haïtiens ou tournés vers la communauté haïtienne : restaurants, boulangeries ou pâtisseries, salons de coiffure ou de beauté, barbiers, traiteurs, épiceries ou marchés. EXCLUS les associations, ONG, églises, médias, cabinets d'avocats ou de médecins, écoles, chaînes ou grands groupes, sites d'avis et annuaires. Dans \"notes\", écris le type de commerce (restaurant, boulangerie, salon, traiteur, épicerie) et la ville."
   },
   {
     "id": "ngo_ht",
