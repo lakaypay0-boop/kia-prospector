@@ -166,6 +166,21 @@ class AnnuairesEtNomsVides(unittest.TestCase):
         self.assertFalse(P.excluded(dict(self.OK, source_url="https://www.facebook.com/chezmarie"), self.SEG))
         self.assertFalse(P.excluded(dict(self.OK, source_url="https://mabbbakery.com"), self.SEG))
 
+class MemeSite(unittest.TestCase):
+    def test_un_site_une_entreprise(self):
+        a = {"name": "Anba Tonel & Rdjess Traiteur", "contact": "+14383840685", "channel": "whatsapp", "source_url": "https://rdjess.com"}
+        b = {"name": "Rdjess Traiteur", "contact": "+15145764563", "channel": "whatsapp", "source_url": "https://www.rdjess.com/"}
+        e = {"name": "Rdjess", "contact": "info@rdjess.com", "channel": "email", "source_url": "https://rdjess.com/contact"}
+        self.assertEqual(len(P.dedupe([a, b])), 1)
+        self.assertEqual(P.dedupe([a, b, e])[0]["contact"], "info@rdjess.com")
+
+    def test_hotes_partages_non_fusionnes(self):
+        f1 = {"name": "Chez A", "contact": "+13055550101", "channel": "whatsapp", "source_url": "https://www.facebook.com/chezA"}
+        f2 = {"name": "Chez B", "contact": "+13055550102", "channel": "whatsapp", "source_url": "https://www.facebook.com/chezB"}
+        g1 = {"name": "Salon C", "contact": "+13055550103", "channel": "whatsapp", "source_url": "https://sites.google.com/view/c"}
+        g2 = {"name": "Salon D", "contact": "+13055550104", "channel": "whatsapp", "source_url": "https://sites.google.com/view/d"}
+        self.assertEqual(len(P.dedupe([f1, f2, g1, g2])), 4)
+
 class DiasporaBiz(unittest.TestCase):
     def test_segment_commerces(self):
         import os

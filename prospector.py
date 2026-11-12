@@ -369,6 +369,15 @@ def _rank(p):
     return {"email": 3, "whatsapp": 2}.get(p.get("channel"), 1)
 
 
+SHARED_HOSTS = ("facebook.com", "instagram.com", "linkedin.com", "twitter.com", "x.com", "tiktok.com",
+                "youtube.com", "sites.google.com", "linktr.ee", "business.site", "wixsite.com", "github.io")
+
+
+def _host(url):
+    h = urllib.parse.urlparse(url or "").netloc.lower()
+    return h[4:] if h.startswith("www.") else h
+
+
 def dedupe(items):
     """Un seul contact par organisation : email > WhatsApp > téléphone fixe."""
     owners = {}
@@ -380,7 +389,15 @@ def dedupe(items):
         k = re.sub(r"\W+", " ", p["name"].lower()).strip()
         if k not in best or _rank(p) > _rank(best[k]):
             best[k] = p
-    return list(best.values())
+    # Même site web = même entreprise (deux noms ou deux numéros pour un seul commerce).
+    byhost, out = {}, []
+    for p in best.values():
+        h = _host(p.get("source_url"))
+        if not h or any(h == d or h.endswith("." + d) for d in SHARED_HOSTS):
+            out.append(p)
+        elif h not in byhost or _rank(p) > _rank(byhost[h]):
+            byhost[h] = p
+    return out + list(byhost.values())
 
 
 def push(prospects, base_url, token, batch=50):
