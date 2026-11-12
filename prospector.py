@@ -13,8 +13,10 @@ import urllib.error, urllib.parse, urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 OVERPASS = [
     "https://overpass-api.de/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
 ]
+HAITI_BBOX = "17.9,-74.6,20.2,-71.5"  # sud, ouest, nord, est
 UA = "kreyolia-prospector/1.0 (contact: kreyolia.com)"
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
@@ -63,31 +65,28 @@ def normalize_phone(raw, default_cc="509"):
 
 
 # ---------------------------------------------------------------- OpenStreetMap
-def build_overpass_query(filters, area_iso="HT", limit=400):
+def build_overpass_query(filters, bbox=HAITI_BBOX, limit=300):
     parts = []
     for f in filters:
         k, v = f.split("=", 1)
-        for el in ("node", "way"):
-            parts.append(f'{el}["{k}"="{v}"]["name"](area.a);')
-    return (
-        f'[out:json][timeout:60];area["ISO3166-1"="{area_iso}"][admin_level=2]->.a;('
-        + "".join(parts)
-        + f");out center {limit};"
-    )
+        parts.append(f'nwr["{k}"="{v}"]["name"]({bbox});')
+    return "[out:json][timeout:25];(" + "".join(parts) + f");out center {limit};"
 
 
-def fetch_osm(filters):
+def fetch_osm(filters, tries=2):
     q = build_overpass_query(filters)
     last = None
-    for url in OVERPASS:
-        try:
-            return http_json(url, data="data=" + urllib.parse.quote(q),
-                             headers={"Content-Type": "application/x-www-form-urlencoded"},
-                             timeout=90)
-        except Exception as e:  # noqa
-            last = e
-            log("overpass échec", url, e)
-            time.sleep(3)
+    for attempt in range(tries):
+        for url in OVERPASS:
+            try:
+                return http_json(url, data="data=" + urllib.parse.quote(q),
+                                 headers={"Content-Type": "application/x-www-form-urlencoded"},
+                                 timeout=40)
+            except Exception as e:  # noqa
+                last = e
+                log("overpass échec", url, repr(e))
+                time.sleep(2)
+        time.sleep(8)
     raise RuntimeError(f"Overpass indisponible: {last}")
 
 
@@ -282,7 +281,7 @@ def run(args, env=os.environ):
     if seg["kind"] == "osm":
         filters = list(seg["osm"])
         rng.shuffle(filters)
-        data = fetch_osm(filters[:3])
+        data = fetch_osm(filters[:2])
         items = parse_osm(data, seg)
         rng.shuffle(items)
     else:

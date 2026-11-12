@@ -35,7 +35,7 @@ class Osm(unittest.TestCase):
 
     def test_query(self):
         q = P.build_overpass_query(["amenity=clinic"])
-        self.assertIn('"ISO3166-1"="HT"', q)
+        self.assertIn("17.9,-74.6,20.2,-71.5", q)
         self.assertIn('["amenity"="clinic"]', q)
 
 
