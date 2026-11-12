@@ -17,6 +17,26 @@ class Phone(unittest.TestCase):
         self.assertEqual(n(None), "")
 
 
+class PhonesAbroad(unittest.TestCase):
+    def test_france_et_numeros_verts(self):
+        self.assertEqual(P.normalize_phone("07 45 17 48 65", "33"), "+33745174865")
+        self.assertEqual(P.normalize_phone("+33 1 23 45 67 89", "33"), "+33123456789")
+        self.assertEqual(P.phone_channel("+33745174865"), "whatsapp")
+        self.assertEqual(P.phone_channel("+33123456789"), "téléphone")
+        self.assertTrue(P.is_toll_free("+18003540365"))
+        self.assertFalse(P.is_toll_free("+13055734871"))
+        c = {"name": "Assoc", "contact": "07 45 17 48 65", "country": "France"}
+        self.assertEqual(P.verify_candidate(c, "tel 07 45 17 48 65")["contact"], "+33745174865")
+        v = {"name": "Charities", "contact": "1-800-354-0365", "country": "États-Unis"}
+        self.assertIsNone(P.verify_candidate(v, "call 1-800-354-0365"))
+
+    def test_contact_partage_entre_organisations(self):
+        a = {"name": "UNHCR", "contact": "x@y.org", "channel": "email"}
+        b = {"name": "UN Women", "contact": "x@y.org", "channel": "email"}
+        c = {"name": "Autre", "contact": "z@y.org", "channel": "email"}
+        self.assertEqual([p["name"] for p in P.dedupe([a, b, c])], ["Autre"])
+
+
 class Osm(unittest.TestCase):
     def test_parse(self):
         data = {"elements": [

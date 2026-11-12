@@ -53,6 +53,12 @@ def normalize_phone(raw, default_cc="509"):
         if digits.startswith("00"):
             digits = digits[2:]
         return "+" + digits if 9 <= len(digits) <= 15 else ""
+    if default_cc == "33":
+        if len(digits) == 10 and digits.startswith("0"):
+            return "+33" + digits[1:]
+        if len(digits) == 11 and digits.startswith("33"):
+            return "+" + digits
+        return ""
     if len(digits) == 8:
         return "+" + default_cc + digits
     if digits.startswith(default_cc) and len(digits) == 11:
@@ -64,11 +70,27 @@ def normalize_phone(raw, default_cc="509"):
     return ""
 
 
+TOLL_FREE = ("800", "833", "844", "855", "866", "877", "888")
+
+
+def is_toll_free(norm):
+    """Numéros verts nord-américains : pas de WhatsApp possible, aucun intérêt pour nous."""
+    return norm.startswith("+1") and len(norm) == 12 and norm[2:5] in TOLL_FREE
+
+
 def phone_channel(norm):
-    """Haïti : les mobiles commencent par 3 ou 4 (+509 3/4...) ; le reste = fixe."""
+    """Haïti : mobiles en 3/4 ; France : mobiles en 6/7 ; le reste = fixe."""
     if norm.startswith("+509") and len(norm) == 12 and norm[4] not in "34":
         return "téléphone"
+    if norm.startswith("+33") and len(norm) == 12 and norm[3] not in "67":
+        return "téléphone"
     return "whatsapp"
+
+
+def country_cc(country):
+    """Indicatif par défaut selon le pays du prospect (France : numéros en 0X XX XX XX XX)."""
+    c = (country or "").strip().lower()
+    return "33" if c in ("france", "fr") else "509"
 
 
 # ---------------------------------------------------------------- OpenStreetMap
@@ -157,6 +179,9 @@ EXTRACT_SYS = (
     "N'invente JAMAIS un email ou un numéro : le contact doit apparaître mot pour mot dans le texte fourni. "
     "Vise des ORGANISATIONS (cliniques, hôtels, écoles, commerces, restaurants, associations, ONG, entreprises) : "
     "ignore les praticiens isolés, les particuliers, les annuaires eux-mêmes, les grandes multinationales, "
+    "les agences des Nations Unies et grandes organisations internationales (UNICEF, PAM, UNESCO...), "
+    "les gouvernements, ministères, ambassades, missions diplomatiques, services publics et lignes d'assistance, "
+    "les banques et grandes institutions financières, "
     "les résultats sans contact, et TOUTE entreprise de services numériques "
     "(agence web, agence digitale, développement de sites ou d'applications, informatique, marketing digital, freelance IT). "
     "Préfère un email professionnel (pas msn/hotmail/gmail) "
@@ -265,8 +290,8 @@ def verify_candidate(c, corpus):
         digits = re.sub(r"\D", "", contact)
         if len(digits) < 8 or digits[-8:] not in re.sub(r"\D", "", corpus):
             return None
-        norm = normalize_phone(contact)
-        if not norm:
+        norm = normalize_phone(contact, country_cc(c.get("country")))
+        if not norm or is_toll_free(norm):
             return None
         contact = norm
         c["channel"] = phone_channel(norm)
@@ -313,6 +338,10 @@ def _rank(p):
 
 def dedupe(items):
     """Un seul contact par organisation : email > WhatsApp > téléphone fixe."""
+    owners = {}
+    for p in items:
+        owners.setdefault(p["contact"].lower(), set()).add(re.sub(r"\W+", " ", p["name"].lower()).strip())
+    items = [p for p in items if len(owners[p["contact"].lower()]) == 1]
     best = {}
     for p in items:
         k = re.sub(r"\W+", " ", p["name"].lower()).strip()
