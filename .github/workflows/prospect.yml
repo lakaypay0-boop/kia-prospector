@@ -30,6 +30,7 @@ jobs:
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-3.5-flash-lite
           SEGMENT: ${{ github.event.inputs.segment }}
           DRY: ${{ github.event.inputs.dry_run }}
         run: |
