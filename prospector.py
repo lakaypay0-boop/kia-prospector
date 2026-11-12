@@ -155,10 +155,14 @@ EXTRACT_SYS = (
     "Réponds UNIQUEMENT par un tableau JSON. Chaque élément : "
     '{"name":str,"contact":str,"channel":"email|whatsapp|web","country":str,"notes":str,"source_url":str}. '
     "N'invente JAMAIS un email ou un numéro : le contact doit apparaître mot pour mot dans le texte fourni. "
-    "Vise des ORGANISATIONS (cliniques, hôtels, écoles, commerces, associations, ONG, entreprises) : "
+    "Vise des ORGANISATIONS (cliniques, hôtels, écoles, commerces, restaurants, associations, ONG, entreprises) : "
     "ignore les praticiens isolés, les particuliers, les annuaires eux-mêmes, les grandes multinationales, "
-    "les agences web/IT concurrentes et les résultats sans contact. Préfère un email professionnel (pas msn/hotmail/gmail) "
+    "les résultats sans contact, et TOUTE entreprise de services numériques "
+    "(agence web, agence digitale, développement de sites ou d'applications, informatique, marketing digital, freelance IT). "
+    "Préfère un email professionnel (pas msn/hotmail/gmail) "
     "ou un numéro de téléphone/WhatsApp pour l'organisation. "
+    'Écris "notes" en FRANÇAIS : une courte phrase (type d\'organisation, ville) ; pas de numéro de téléphone dans les notes. '
+    'Écris "country" en français, au nom complet : États-Unis, Canada, France, Haïti, etc. '
     "Si rien d'exploitable, réponds []."
 )
 
@@ -176,31 +180,73 @@ def extract_json_array(text):
     return [x for x in v if isinstance(x, dict)] if isinstance(v, list) else []
 
 
+RETRY_CODES = (429, 500, 502, 503, 504)
+
+
+def call_with_retry(fn, tries=3, base=8):
+    """Réessaie après 429/5xx/timeout, avec attente croissante (8 s, 16 s...)."""
+    for i in range(tries):
+        try:
+            return fn()
+        except urllib.error.HTTPError as e:
+            if e.code not in RETRY_CODES or i == tries - 1:
+                raise
+            wait = base * (2 ** i)
+            ra = e.headers.get("Retry-After") if e.headers else None
+            if ra and ra.isdigit():
+                wait = min(max(wait, int(ra)), 60)
+            log(f"HTTP {e.code}, nouvel essai dans {wait}s")
+            time.sleep(wait)
+        except (TimeoutError, urllib.error.URLError) as e:
+            if i == tries - 1:
+                raise
+            log(f"réseau/timeout ({e!r}), nouvel essai dans {base}s")
+            time.sleep(base)
+
+
+def _openai_compat(url, key, model, system, user, extra=None):
+    payload = {"model": model,
+               "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+               "max_tokens": 3000, "temperature": 0.1}
+    payload.update(extra or {})
+    r = call_with_retry(lambda: http_json(
+        url, data=payload, headers={"Authorization": "Bearer " + key}, timeout=60))
+    return r["choices"][0]["message"].get("content") or ""
+
+
 def llm_complete(system, user, env=os.environ):
+    """Chaîne de repli : Groq -> Gemini -> Mistral. Première réponse non vide gagne."""
+    providers = []
     if env.get("GROQ_API_KEY"):
-        try:
-            r = http_json("https://api.groq.com/openai/v1/chat/completions", data={
-                "model": env.get("GROQ_MODEL", "openai/gpt-oss-120b"),
-                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-                "reasoning_effort": "low", "max_tokens": 3000, "temperature": 0.1},
-                headers={"Authorization": "Bearer " + env["GROQ_API_KEY"]}, timeout=90)
-            txt = r["choices"][0]["message"].get("content") or ""
-            if txt.strip():
-                return txt
-        except Exception as e:  # noqa
-            log("groq échec:", e)
+        providers.append(("groq", lambda: _openai_compat(
+            "https://api.groq.com/openai/v1/chat/completions", env["GROQ_API_KEY"],
+            env.get("GROQ_MODEL", "openai/gpt-oss-120b"), system, user,
+            {"reasoning_effort": "low"})))
     if env.get("GEMINI_API_KEY"):
-        model = env.get("GEMINI_MODEL", "gemini-flash-latest")
-        try:
-            r = http_json(
+        model = env.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
+
+        def gem():
+            r = call_with_retry(lambda: http_json(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                 data={"systemInstruction": {"parts": [{"text": system}]},
                       "contents": [{"role": "user", "parts": [{"text": user}]}],
                       "generationConfig": {"temperature": 0.1, "maxOutputTokens": 3000}},
-                headers={"x-goog-api-key": env["GEMINI_API_KEY"]}, timeout=90)
-            return r["candidates"][0]["content"]["parts"][0].get("text", "")
+                headers={"x-goog-api-key": env["GEMINI_API_KEY"]}, timeout=60))
+            parts = r["candidates"][0]["content"]["parts"]
+            return "".join(p.get("text", "") for p in parts if not p.get("thought"))
+        providers.append(("gemini", gem))
+    if env.get("MISTRAL_API_KEY"):
+        providers.append(("mistral", lambda: _openai_compat(
+            "https://api.mistral.ai/v1/chat/completions", env["MISTRAL_API_KEY"],
+            env.get("MISTRAL_MODEL", "mistral-small-latest"), system, user)))
+    for name, fn in providers:
+        try:
+            txt = fn()
+            if txt and txt.strip():
+                return txt
+            log(name, "réponse vide")
         except Exception as e:  # noqa
-            log("gemini échec:", e)
+            log(f"{name} échec:", e)
     return ""
 
 
@@ -232,7 +278,9 @@ def fetch_web(seg, tavily_key, rng, max_queries=3):
     out = []
     queries = list(seg["queries"])
     rng.shuffle(queries)
-    for q in queries[:max_queries]:
+    for n, q in enumerate(queries[:max_queries]):
+        if n:
+            time.sleep(10)  # évite le 429 des paliers gratuits
         try:
             res = tavily_search(q, tavily_key)
         except Exception as e:  # noqa
