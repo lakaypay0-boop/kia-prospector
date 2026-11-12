@@ -93,5 +93,22 @@ class Rotation(unittest.TestCase):
         self.assertIn(P.pick_segment(segs, None, datetime.date(2026, 11, 12))["id"], "abc")
 
 
+class Fallback(unittest.TestCase):
+    def test_osm_down_uses_web(self):
+        import argparse
+        orig = (P.fetch_osm, P.fetch_web)
+        P.fetch_osm = lambda f: (_ for _ in ()).throw(RuntimeError("down"))
+        P.fetch_web = lambda seg, key, rng, mq=2: [
+            {"name": "Clinique Web", "contact": "+50937123456", "segment": "x", "country": "Haïti",
+             "channel": "whatsapp", "source_url": "", "score": 70, "notes": "n"}]
+        try:
+            args = argparse.Namespace(segment="clinics_ht", max=5, dry_run=True)
+            self.assertEqual(P.run(args, env={"TAVILY_API_KEY": "k"}), 0)
+            with self.assertRaises(Exception):
+                P.run(args, env={})
+        finally:
+            P.fetch_osm, P.fetch_web = orig
+
+
 if __name__ == "__main__":
     unittest.main()

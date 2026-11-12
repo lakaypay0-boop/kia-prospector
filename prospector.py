@@ -70,24 +70,33 @@ def build_overpass_query(filters, bbox=HAITI_BBOX, limit=300):
     for f in filters:
         k, v = f.split("=", 1)
         parts.append(f'nwr["{k}"="{v}"]["name"]({bbox});')
-    return "[out:json][timeout:25];(" + "".join(parts) + f");out center {limit};"
+    return "[out:json][timeout:20];(" + "".join(parts) + f");out center {limit};"
 
 
-def fetch_osm(filters, tries=2):
-    q = build_overpass_query(filters)
-    last = None
-    for attempt in range(tries):
+def fetch_osm(filters, budget=150):
+    """Une requête légère par filtre ; s'arrête dès qu'un filtre répond ou que le budget (s) est épuisé."""
+    start, last, elements = time.time(), None, []
+    for f in filters:
+        q = build_overpass_query([f], limit=150)
+        got = False
         for url in OVERPASS:
+            if time.time() - start > budget:
+                break
             try:
-                return http_json(url, data="data=" + urllib.parse.quote(q),
-                                 headers={"Content-Type": "application/x-www-form-urlencoded"},
-                                 timeout=40)
+                r = http_json(url, data="data=" + urllib.parse.quote(q),
+                              headers={"Content-Type": "application/x-www-form-urlencoded"},
+                              timeout=30)
+                elements += r.get("elements", [])
+                got = True
+                break
             except Exception as e:  # noqa
                 last = e
                 log("overpass échec", url, repr(e))
-                time.sleep(2)
-        time.sleep(8)
-    raise RuntimeError(f"Overpass indisponible: {last}")
+        if got and len(elements) >= 40:
+            break
+    if not elements and last is not None:
+        raise RuntimeError(f"Overpass indisponible: {last}")
+    return {"elements": elements}
 
 
 def parse_osm(data, seg):
@@ -278,17 +287,25 @@ def run(args, env=os.environ):
     rng = random.Random()
     log("segment:", seg["id"])
     items = []
+    def web(max_queries=2):
+        if not env.get("TAVILY_API_KEY"):
+            log("TAVILY_API_KEY absent : pas de repli web.")
+            return []
+        return fetch_web(seg, env["TAVILY_API_KEY"], rng, max_queries)
+
     if seg["kind"] == "osm":
         filters = list(seg["osm"])
         rng.shuffle(filters)
-        data = fetch_osm(filters[:2])
-        items = parse_osm(data, seg)
-        rng.shuffle(items)
+        try:
+            items = parse_osm(fetch_osm(filters), seg)
+            rng.shuffle(items)
+        except Exception as e:  # noqa
+            log("OSM indisponible, repli sur la recherche web :", repr(e))
+            items = web(3)
+            if not items:
+                raise
     else:
-        if not env.get("TAVILY_API_KEY"):
-            log("TAVILY_API_KEY absent : segment web ignoré.")
-        else:
-            items = fetch_web(seg, env["TAVILY_API_KEY"], rng)
+        items = web()
     items = dedupe(items)[: args.max]
     log(f"{len(items)} prospects retenus")
     if args.dry_run or not items:
