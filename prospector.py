@@ -73,7 +73,7 @@ def build_overpass_query(filters, bbox=HAITI_BBOX, limit=300):
     return "[out:json][timeout:20];(" + "".join(parts) + f");out center {limit};"
 
 
-def fetch_osm(filters, budget=150):
+def fetch_osm(filters, budget=45):
     """Une requête légère par filtre ; s'arrête dès qu'un filtre répond ou que le budget (s) est épuisé."""
     start, last, elements = time.time(), None, []
     for f in filters:
@@ -85,7 +85,7 @@ def fetch_osm(filters, budget=150):
             try:
                 r = http_json(url, data="data=" + urllib.parse.quote(q),
                               headers={"Content-Type": "application/x-www-form-urlencoded"},
-                              timeout=30)
+                              timeout=20)
                 elements += r.get("elements", [])
                 got = True
                 break
@@ -135,7 +135,7 @@ def parse_osm(data, seg):
 
 
 # ---------------------------------------------------------------- web + LLM
-def tavily_search(query, key, n=6):
+def tavily_search(query, key, n=10):
     r = http_json("https://api.tavily.com/search", data={
         "api_key": key, "query": query, "max_results": n,
         "search_depth": "basic", "include_answer": False}, timeout=60)
@@ -147,7 +147,10 @@ EXTRACT_SYS = (
     "Réponds UNIQUEMENT par un tableau JSON. Chaque élément : "
     '{"name":str,"contact":str,"channel":"email|whatsapp|web","country":str,"notes":str,"source_url":str}. '
     "N'invente JAMAIS un email ou un numéro : le contact doit apparaître mot pour mot dans le texte fourni. "
-    "Ignore les grandes multinationales, les agences de web/IT concurrentes et les résultats sans contact. "
+    "Vise des ORGANISATIONS (cliniques, hôtels, écoles, commerces, associations, ONG, entreprises) : "
+    "ignore les praticiens isolés, les particuliers, les annuaires eux-mêmes, les grandes multinationales, "
+    "les agences web/IT concurrentes et les résultats sans contact. Préfère un email professionnel (pas msn/hotmail/gmail) "
+    "ou un numéro de téléphone/WhatsApp pour l'organisation. "
     "Si rien d'exploitable, réponds []."
 )
 
@@ -217,7 +220,7 @@ def verify_candidate(c, corpus):
     return c
 
 
-def fetch_web(seg, tavily_key, rng, max_queries=2):
+def fetch_web(seg, tavily_key, rng, max_queries=3):
     out = []
     queries = list(seg["queries"])
     rng.shuffle(queries)
@@ -301,11 +304,11 @@ def run(args, env=os.environ):
             rng.shuffle(items)
         except Exception as e:  # noqa
             log("OSM indisponible, repli sur la recherche web :", repr(e))
-            items = web(3)
+            items = web(5)
             if not items:
                 raise
     else:
-        items = web()
+        items = web(3)
     items = dedupe(items)[: args.max]
     log(f"{len(items)} prospects retenus")
     if args.dry_run or not items:
