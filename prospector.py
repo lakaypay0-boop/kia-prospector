@@ -64,6 +64,13 @@ def normalize_phone(raw, default_cc="509"):
     return ""
 
 
+def phone_channel(norm):
+    """Haïti : les mobiles commencent par 3 ou 4 (+509 3/4...) ; le reste = fixe."""
+    if norm.startswith("+509") and len(norm) == 12 and norm[4] not in "34":
+        return "téléphone"
+    return "whatsapp"
+
+
 # ---------------------------------------------------------------- OpenStreetMap
 def build_overpass_query(filters, bbox=HAITI_BBOX, limit=300):
     parts = []
@@ -116,7 +123,8 @@ def parse_osm(data, seg):
         if email and EMAIL_RE.fullmatch(email):
             contact, channel = email, "email"
         else:
-            contact, channel = (wa or phone), "whatsapp"
+            contact = wa or phone
+            channel = "whatsapp" if wa else phone_channel(phone)
         score = 60
         if not website:
             score += 15  # pas de site : meilleure cible
@@ -215,7 +223,7 @@ def verify_candidate(c, corpus):
         if not norm:
             return None
         contact = norm
-        c["channel"] = "whatsapp"
+        c["channel"] = phone_channel(norm)
     c["contact"] = contact
     return c
 
@@ -251,14 +259,18 @@ def fetch_web(seg, tavily_key, rng, max_queries=3):
 
 
 # ---------------------------------------------------------------- envoi
+def _rank(p):
+    return {"email": 3, "whatsapp": 2}.get(p.get("channel"), 1)
+
+
 def dedupe(items):
-    seen, out = set(), []
+    """Un seul contact par organisation : email > WhatsApp > téléphone fixe."""
+    best = {}
     for p in items:
-        k = (p["name"].lower(), p["contact"].lower())
-        if k not in seen:
-            seen.add(k)
-            out.append(p)
-    return out
+        k = re.sub(r"\W+", " ", p["name"].lower()).strip()
+        if k not in best or _rank(p) > _rank(best[k]):
+            best[k] = p
+    return list(best.values())
 
 
 def push(prospects, base_url, token, batch=50):

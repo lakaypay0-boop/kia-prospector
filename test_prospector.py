@@ -55,8 +55,16 @@ class Extract(unittest.TestCase):
         self.assertEqual(ph["contact"], "+13055550123")
 
     def test_dedupe(self):
-        a = {"name": "X", "contact": "a@b.c"}
+        a = {"name": "X", "contact": "a@b.c", "channel": "email"}
         self.assertEqual(len(P.dedupe([a, dict(a, name="x")])), 1)
+        w = {"name": "WinWell Dental Spa", "contact": "+50929403368", "channel": "téléphone"}
+        e = {"name": "WinWell  Dental Spa", "contact": "i@w.com", "channel": "email"}
+        self.assertEqual(P.dedupe([w, e]), [e])
+
+    def test_channel(self):
+        self.assertEqual(P.phone_channel("+50929403368"), "téléphone")
+        self.assertEqual(P.phone_channel("+50937123456"), "whatsapp")
+        self.assertEqual(P.phone_channel("+13055550123"), "whatsapp")
 
 
 class Push(unittest.TestCase):
